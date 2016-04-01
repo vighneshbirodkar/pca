@@ -30,7 +30,6 @@ class RobustPCA(BaseEstimator):
         T = np.maximum(S - r, 0.0)
 
         Y = (U * T).dot(V)
-
         return Y
 
     def __l1_prox(self, A, r=1.0):
@@ -150,9 +149,15 @@ class RobustPCA(BaseEstimator):
             'obj_list':   []
         }
 
+        # Xt -> M
+        # rho -> mu
+        # Z -> S (sparse)
+        # Y -> L (low rank)
         for t in range(self.max_iter):
+            # Step 3
             Y = self.__nuclear_prox(Xt - Z - W, 1.0/rho)
             Z_old = Z.copy()
+            # Step 4
             Z = self.__l1_prox(Xt - Y - W, self.alpha_ / rho)
 
             residual_pri = Y + Z - Xt
