@@ -21,12 +21,12 @@ def do_tga(M, n):
 
 
 def do_pcp(M, mu=None):
-    L, S, obj, nnzs = pcp(M, verbose=True, delta=1e-6, mu=mu, svd_method='exact', maxiter=100)
+    L, S, obj, nnzs = pcp(M, verbose=True, delta=1e-6, mu=mu, svd_method='exact', maxiter=1000)
     return L, S, obj, nnzs
 
 
 def do_rpca(M):
-    model = RobustPCA(verbose=False, max_iter=100)
+    model = RobustPCA(verbose=False, max_iter=1000)
     L = model.fit_transform(M)
     S = M - L
 
@@ -43,13 +43,12 @@ for dat in datasets:
     # loading and vectorization
     print('loading data')
     if dat == 'synthetic':
-        n = 1000
-        r = 25
+        n = 500
+        r = 25  # Rank
         X = np.random.normal(0, 1/float(n), size=(n, r))
         Y = np.random.normal(0, 1/float(n), size=(n, r))
         L = np.dot(X, Y.T)
-        S = np.random.choice([0, 1, -1], (n, n), p=[0.5, 0.25, 0.25])
-        print('nnz = ', np.count_nonzero(S))
+        S = np.random.choice([0, 1, -1], (n, n), p=[0.95, 0.025, 0.025])
         X = L + S
 
     if dat in ['http', 'smtp', 'SA', 'SF']:
@@ -102,7 +101,6 @@ for dat in datasets:
 
 #print(dataset.data.shape)
 
-print('Data Rank = ', matrix_rank(X))
 new_X = np.zeros_like(X, dtype=np.int)
 
 if (X.dtype == np.dtype('O')):
@@ -118,12 +116,11 @@ if (X.dtype == np.dtype('O')):
 print(X.shape)
 
 X = MinMaxScaler().fit_transform(X)
-print(X.min(), X.max())
 plt.figure(figsize=(15, 10))
 lam = 1.0 / np.sqrt(np.max(X.shape))
 d_ = '-'*10
 
-for mu in [None, 1, 1e-2]:
+for mu in [None, 0.1, 10]:
     print((d_ + 'Dan PCA for mu = %s' + d_) % mu)
     L, S, pcp_obj, _ = do_pcp(X, mu)
     nn = norm(L, 'nuc')

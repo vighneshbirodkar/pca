@@ -49,7 +49,7 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
     if mu is None:
         mu = 0.20 * np.prod(shape) / np.sum(np.abs(M))
         if verbose:
-            print("mu = {0}".format(mu))
+            pass#print("mu = {0}".format(mu))
 
     # Convergence criterion.
     norm = np.sum(M ** 2)
@@ -88,17 +88,16 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
             o = norm_(L, 'nuc') + lam*np.sum(np.abs(S_))
             #print('PCP Objective = ', o)
             obj.append(o)
-            print(("Iteration {0}: error={1:.3e}, rank={2:d}, nnz={3:d}, "
-                   "time={4:.3e}")
-                  .format(i, err, np.sum(s > 0), np.sum(S > 0), svd_time))
+            #print(("Iteration {0}: error={1:.3e}, rank={2:d}, nnz={3:d}, "
+            #       "time={4:.3e}")
+            #      .format(i, err, np.sum(s > 0), np.sum(S > 0), svd_time))
             nnzs.append(np.sum(S > 0))
         if err < delta:
             break
         i += 1
 
-
-    if i >= maxiter:
-        logging.warn("convergence not reached in pcp")
+    #if i >= maxiter:
+    #    logging.warn("convergence not reached in pcp")
     return L, S, obj, nnzs
 
 

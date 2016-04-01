@@ -110,7 +110,7 @@ class RobustPCA(BaseEstimator):
         SCALE_FACTOR = 1.5e0
 
         ABS_TOL = 1e-4
-        REL_TOL = 1e-3
+        REL_TOL = 0#1e-3
 
         # update rules:
         #  Y+ <- nuclear_prox(X - Z - W, 1/rho)
@@ -149,15 +149,16 @@ class RobustPCA(BaseEstimator):
             'obj_list':   []
         }
 
-        # Xt -> M
-        # rho -> mu
-        # Z -> S (sparse)
-        # Y -> L (low rank)
+        # For Boyd ADMM paper
+        # Xt -> c
+        # Z -> z (sparse)
+        # Y -> x (low rank)
+        # W -> u (lagrange multiplier)
         for t in range(self.max_iter):
-            # Step 3
+            # Eq 3.5
             Y = self.__nuclear_prox(Xt - Z - W, 1.0/rho)
             Z_old = Z.copy()
-            # Step 4
+            # Step 3.6
             Z = self.__l1_prox(Xt - Y - W, self.alpha_ / rho)
 
             residual_pri = Y + Z - Xt
@@ -166,8 +167,10 @@ class RobustPCA(BaseEstimator):
             res_norm_pri = scipy.linalg.norm(residual_pri)
             res_norm_dual = rho * scipy.linalg.norm(residual_dual)
 
+            #Step 3.7
             W = W + residual_pri
 
+            # Just after 3.12
             eps_pri = np.sqrt(m) * ABS_TOL + REL_TOL * max(scipy.linalg.norm(Y), scipy.linalg.norm(Z), norm_X)
             eps_dual = np.sqrt(m) * ABS_TOL + REL_TOL * scipy.linalg.norm(W)
 
@@ -180,6 +183,7 @@ class RobustPCA(BaseEstimator):
             if res_norm_pri <= eps_pri and res_norm_dual <= eps_dual:
                 break
 
+            # Equation 3.13
             if res_norm_pri > MAX_RATIO * res_norm_dual and rho * SCALE_FACTOR <= RHO_MAX:
                 rho = rho * SCALE_FACTOR
                 W = W / SCALE_FACTOR
