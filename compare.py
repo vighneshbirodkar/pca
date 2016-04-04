@@ -1,4 +1,3 @@
-
 from sklearn.datasets import fetch_kddcup99, fetch_covtype, fetch_mldata
 import numpy as np
 from numpy.linalg import matrix_rank
@@ -6,9 +5,19 @@ from matplotlib import pyplot as plt
 from pcp import pcp
 from tga import TGA
 from sklearn.utils import shuffle as sh
-from sklearn.preprocessing import LabelBinarizer, LabelEncoder, MinMaxScaler
 from rpca import RobustPCA
 from numpy.linalg import norm
+from numpy.linalg import svd
+from sklearn.preprocessing import LabelBinarizer
+from mypca import mypcp
+
+
+TOLERANCE = 1e-4
+
+
+def prettify(ax):
+    ax.legend(loc='best')
+    ax.grid(True)
 
 
 def do_tga(M, n):
@@ -20,24 +29,88 @@ def do_tga(M, n):
     return L, S, tga.obj, tga.nnzs
 
 
-def do_pcp(M, mu=None):
-    L, S, obj, nnzs = pcp(M, verbose=True, delta=1e-6, mu=mu, svd_method='exact', maxiter=1000)
+def do_pcp(M, mu=None, report=False):
+
+    if report:
+        d_ = '-'*8
+        print((d_ + 'Dan PCA for mu = %s' + d_) % mu)
+
+    L, S, obj, nnzs = pcp(M, verbose=True, delta=1e-5, mu=mu,
+                          svd_method='exact', maxiter=20)
+
+    if report:
+        lam = 1.0/np.sqrt(np.max(M.shape))
+        nn = norm(L, 'nuc')
+        on = np.sum(np.abs(S))
+        o = nn + lam*on
+        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
+                                        np.count_nonzero(S)))
+        print('Nuclear Norm = %e' % nn)
+        print('One Norm = %e' % on)
+        print('Objective = %e' % o)
+
     return L, S, obj, nnzs
 
 
-def do_rpca(M):
-    model = RobustPCA(verbose=False, max_iter=1000)
+def do_mypcp(M, mu=None, lam=None, report=False, throttle=True):
+
+    if report:
+        d_ = '-'*8
+        print((d_ + 'My PCA for mu = %s, throttle=%s' + d_) %
+              (mu, str(throttle)))
+
+    L, S, err_list = mypcp(M, mu=mu, lam=lam, max_iter=70, throttle=throttle)
+    err_ax.semilogy(err_list, label='Throttle %s' % str(throttle))
+
+    if report:
+        lam = 1.0/np.sqrt(np.max(M.shape))
+        nn = norm(L, 'nuc')
+        on = np.sum(np.abs(S))
+        o = nn + lam*on
+        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
+                                        np.count_nonzero(S)))
+        print('Nuclear Norm = %e' % nn)
+        print('One Norm = %e' % on)
+        print('Objective = %e' % o)
+
+    return L, S
+
+
+def do_rpca(M, report=False):
+
+    if report:
+        d_ = '-'*8
+        print(d_ + 'Brian PCA' + d_)
+
+    model = RobustPCA(verbose=False, max_iter=10, abs_tol=1e-10,
+                      rel_tol=1e-7)
     L = model.fit_transform(M)
     S = M - L
+    lam = 1.0/np.sqrt(np.max(M.shape))
+    if report:
+        nn = norm(L, 'nuc')
+        on = np.sum(np.abs(S))
+        o = nn + lam*on
+        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
+                                        np.count_nonzero(S)))
+        print('Nuclear Norm = %e' % nn)
+        print('One Norm = %e' % on)
+        print('Objective = %e' % o)
 
-    np.save('err_primal.npy', model.diagnostics_['err_primal'])
-    np.save('err_dual.npy', model.diagnostics_['err_dual'])
-    return L, S, model.diagnostics_['obj_list'], None
+    fig, error_ax = plt.subplots()
+    error_ax.semilogy(model.diagnostics_['err_primal'], label='Primal Error')
+    error_ax.semilogy(model.diagnostics_['err_dual'], label='Dual Error')
+    prettify(error_ax)
+    return L, S, model.diagnostics_['objective_list'], None
 
 
 #dataset = fetch_covtype(shuffle=True)
 datasets = ['synthetic']  # , 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
 rank_matrix = {'SF': 3, 'SA': 25, 'shuttle': 5, 'forestcover': 17}
+
+fig, obj_ax = plt.subplots()
+fig, svd_ax = plt.subplots()
+fig, err_ax = plt.subplots()
 
 for dat in datasets:
     # loading and vectorization
@@ -50,6 +123,11 @@ for dat in datasets:
         L = np.dot(X, Y.T)
         S = np.random.choice([0, 1, -1], (n, n), p=[0.95, 0.025, 0.025])
         X = L + S
+        L0 = L
+        S0 = S
+        print('Data Rank = %f, Data NNZs = %f' %
+              (matrix_rank(L, TOLERANCE), np.count_nonzero(S)))
+        svd_ax.semilogy(svd(L, False, False), label='SVD Data')
 
     if dat in ['http', 'smtp', 'SA', 'SF']:
         dataset = fetch_kddcup99(subset=dat, shuffle=True, percent10=True)
@@ -99,65 +177,24 @@ for dat in datasets:
         X = np.c_[X[:, :1], x1, x2, x3, X[:, 4:]]
         y = (y != 'normal.').astype(int)
 
-#print(dataset.data.shape)
 
-new_X = np.zeros_like(X, dtype=np.int)
+for mu in []:
+    L, S, pcp_obj, _ = do_pcp(X, mu, report=True)
+    obj_ax.semilogy(pcp_obj, label='Dan Objective mu = %s' % mu)
+    svd_ax.semilogy(svd(L, False, False), label='Dan SVD %s' % mu)
 
-if (X.dtype == np.dtype('O')):
-    print('X is object type')
-    for c in range(X.shape[1]):
-        new_X[:, c] = LabelEncoder().fit_transform(X[:, c])
-    X = new_X
+#L, S, rpca_obj, _ = do_rpca(X, report=True)
+#obj_ax.semilogy(rpca_obj, label='Brian Objective')
+#svd_ax.semilogy(svd(L, False, False), label='Brian SVD %s')
 
-#if y.dtype == np.dtype('O'):
-#    print('y is object type')
-#    y = LabelEncoder().fit_transform(y)
+L, S = do_mypcp(X, report=True, throttle=True)
+svd_ax.semilogy(svd(L, False, False), label='MyPCA SVD')
 
-print(X.shape)
-
-X = MinMaxScaler().fit_transform(X)
-plt.figure(figsize=(15, 10))
-lam = 1.0 / np.sqrt(np.max(X.shape))
-d_ = '-'*10
-
-for mu in [None, 0.1, 10]:
-    print((d_ + 'Dan PCA for mu = %s' + d_) % mu)
-    L, S, pcp_obj, _ = do_pcp(X, mu)
-    nn = norm(L, 'nuc')
-    on = np.sum(np.abs(S))
-    o = nn + lam*on
-
-    plt.plot(pcp_obj, label='Dan PCP Objective (mu = %s)' % mu)
-    print('Rank = %d, NNZs = %d' % (matrix_rank(L), np.count_nonzero(S)))
-    print('Nuclear Norm = %e' % nn)
-    print('One Norm = %e' % on)
-    print('Objective = %e' % o)
-    np.save('dan_obj_' + str(mu) + '.npy', np.array(pcp_obj))
-    np.save('dan_L_' + str(mu) + '.npy', L)
-
-L, S, rpca_obj, _ = do_rpca(X)
-print(d_ + 'Brian PCA' + d_)
-nn = norm(L, 'nuc')
-on = np.sum(np.abs(S))
-o = nn + lam*on
-print('Rank = %d, NNZs = %d' % (matrix_rank(L), np.count_nonzero(S)))
-print('Nuclear Norm = %e' % nn)
-print('One Norm = %e' % on)
-print('Objective = %e' % o)
-np.save('brian_L.npy', L)
-np.save('brian_obj.npy', np.array(rpca_obj))
-
-plt.plot(rpca_obj, label='Brian PCP Objective')
-
-#import os
-#import shutil
-#data = datasets[0]
-#shutil.rmtree(data, True)
-#os.mkdir(data)
+L, S = do_mypcp(X, report=True, throttle=False)
+svd_ax.semilogy(svd(L, False, False), label='MyPCA SVD')
 
 
-plt.legend(loc='best')
-plt.grid(True)
-#f.savefig(data + '/' + 'objective.png')
-
+prettify(err_ax)
+prettify(obj_ax)
+prettify(svd_ax)
 plt.show()

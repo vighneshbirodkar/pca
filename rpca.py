@@ -1,9 +1,8 @@
 import numpy as np
-
 import scipy.linalg
-from numpy.linalg import norm as norm_
 import scipy.weave
 from sklearn.base import BaseEstimator
+from numpy.linalg import norm
 
 
 class RobustPCA(BaseEstimator):
@@ -80,7 +79,8 @@ class RobustPCA(BaseEstimator):
 
         return nuclear_norm + self.alpha_ * l1_norm, nuclear_norm, l1_norm
 
-    def __init__(self, alpha=None, max_iter=200, verbose=False):
+    def __init__(self, alpha=None, max_iter=200, verbose=False, abs_tol=1e-4,
+                 rel_tol=1e-3):
         '''
         Arguments:
             alpha -- (float > 0) weight between low-rank and noise term
@@ -92,6 +92,8 @@ class RobustPCA(BaseEstimator):
         self.alpha = alpha
         self.max_iter = max_iter
         self.verbose = verbose
+        self.abs_tol = abs_tol
+        self.rel_tol = rel_tol
 
     def fit(self, X):
         '''Fit the robust PCA model to a matrix X'''
@@ -104,13 +106,14 @@ class RobustPCA(BaseEstimator):
         # Some magic numbers for dynamic augmenting penalties in ADMM.
         # Changing these shouldn't effect correctness, only convergence rate.
 
-        RHO_MIN = 1e0
-        RHO_MAX = 1e5
+        RHO_START = np.prod(X.shape) / (4*np.abs(X).sum())
+        RHO_MIN = -np.inf
+        RHO_MAX = np.inf
         MAX_RATIO = 2e0
         SCALE_FACTOR = 1.5e0
 
-        ABS_TOL = 1e-4
-        REL_TOL = 0#1e-3
+        ABS_TOL = self.abs_tol
+        REL_TOL = self.rel_tol
 
         # update rules:
         #  Y+ <- nuclear_prox(X - Z - W, 1/rho)
@@ -118,7 +121,7 @@ class RobustPCA(BaseEstimator):
         #  W+ <- W + Y + Z - X
 
         # Initialize
-        rho = RHO_MIN
+        rho = RHO_START
 
         # Scale the data to a workable range
         X = X.astype(np.float)
@@ -146,7 +149,7 @@ class RobustPCA(BaseEstimator):
             'eps_primal': [],
             'eps_dual':   [],
             'rho':        [],
-            'obj_list':   []
+            'objective_list':   []
         }
 
         # For Boyd ADMM paper
@@ -171,7 +174,8 @@ class RobustPCA(BaseEstimator):
             W = W + residual_pri
 
             # Just after 3.12
-            eps_pri = np.sqrt(m) * ABS_TOL + REL_TOL * max(scipy.linalg.norm(Y), scipy.linalg.norm(Z), norm_X)
+            max_norm = max(scipy.linalg.norm(Y), scipy.linalg.norm(Z), norm_X)
+            eps_pri = np.sqrt(m) * ABS_TOL + REL_TOL * max_norm
             eps_dual = np.sqrt(m) * ABS_TOL + REL_TOL * scipy.linalg.norm(W)
 
             _DIAG['eps_primal'].append(eps_pri)
@@ -184,23 +188,20 @@ class RobustPCA(BaseEstimator):
                 break
 
             # Equation 3.13
-            if res_norm_pri > MAX_RATIO * res_norm_dual and rho * SCALE_FACTOR <= RHO_MAX:
+            if (res_norm_pri > MAX_RATIO*res_norm_dual and
+                    rho*SCALE_FACTOR <= RHO_MAX):
                 rho = rho * SCALE_FACTOR
                 W = W / SCALE_FACTOR
 
-            elif res_norm_dual > MAX_RATIO * res_norm_pri and rho / SCALE_FACTOR >= RHO_MIN:
+            elif (res_norm_dual > MAX_RATIO * res_norm_pri and
+                  rho / SCALE_FACTOR >= RHO_MIN):
                 rho = rho / SCALE_FACTOR
                 W = W * SCALE_FACTOR
 
             Z2 = (Z) * rescale + Xmin
             L = X - Z2
-            S = Z2
-            o_new = norm_(L, 'nuc') + self.alpha_*np.abs(S).sum()
-
-            o = self.__cost(L, Z2)[0]
-            #print('My obj = ', o_new)
-            #print('Brian PCA Objective = ', o)
-            _DIAG['obj_list'].append(o)
+            obj = self.__cost(L, Z2)[0]
+            _DIAG['objective_list'].append(obj)
 
         if self.verbose:
             if t < self.max_iter - 1:
@@ -213,7 +214,6 @@ class RobustPCA(BaseEstimator):
         self.embedding_ = X - Z
 
         _DIAG['cost'] = self.__cost(self.embedding_, Z)
-        #print('Final Cost = ', _DIAG['cost'])
 
         self.diagnostics_ = _DIAG
 

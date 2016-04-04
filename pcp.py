@@ -47,9 +47,9 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
     # Initialize the tuning parameters.
     lam = 1.0 / np.sqrt(np.max(shape))
     if mu is None:
-        mu = 0.20 * np.prod(shape) / np.sum(np.abs(M))
+        mu = 0.25 * np.prod(shape) / np.sum(np.abs(M))
         if verbose:
-            pass#print("mu = {0}".format(mu))
+            pass #print("mu = {0}".format(mu))
 
     # Convergence criterion.
     norm = np.sum(M ** 2)
@@ -83,6 +83,7 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
 
         # Check for convergence.
         err = np.sqrt(np.sum(step ** 2) / norm)
+        print(err)
         if verbose:
             S_ = M - L
             o = norm_(L, 'nuc') + lam*np.sum(np.abs(S_))
