@@ -73,7 +73,7 @@ Objective = 3.279328e+02
 ### AUC
 ![img](shuttle/auc.png)
 
-### Obhective
+### Objective
 ![img](shuttle/obj.png)
 
 ## forestcover Dataset
