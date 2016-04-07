@@ -1,6 +1,7 @@
 ## SF Dataset
 
 ### Output
+```
 --------Dan PCA for mu = None--------
 Rank = 2, NNZs = 115145
 Nuclear Norm = 1.136785e+06
@@ -16,16 +17,18 @@ Rank = 2, NNZs = 180122
 Nuclear Norm = 8.307270e+04
 One Norm = 1.761614e+08
 Objective = 7.340194e+05
+```
 
 ### AUC
-SF/auc.png
+![img](SF/auc.png)
 
 ### Objective
-SF/obj.png
+![img](SF/obj.png)
 
 ## SA Dataset
 
 ### Output
+```
 --------Dan PCA for mu = None--------
 Rank = 16, NNZs = 1001645
 Nuclear Norm = 1.324453e+06
@@ -40,16 +43,17 @@ Objective = 8.703764e+05
 Rank = 13, NNZs = 1653010
 Nuclear Norm = 1.323947e+05
 One Norm = 1.942560e+08
-
+```
 ### AUC
-SA/auc.png
+![img](SA/auc.png)
 
 ### Objective
-SA/obj.png
+![img](SA/obj.png)
 
 ## shuttle Dataset
 
 ### Output
+```
 --------Dan PCA for mu = None--------
 Rank = 5, NNZs = 489870
 Nuclear Norm = 2.952457e+02
@@ -65,21 +69,16 @@ Rank = 2, NNZs = 753025
 Nuclear Norm = 2.067119e+02
 One Norm = 3.551771e+04
 Objective = 3.279328e+02
-
+```
 ### AUC
-shuttle/auc.png
+![img](shuttle/auc.png)
 
 ### Obhective
-shuttle/obj.png
-
-### AUC
-SA/auc.png
-
-### Objective
-SA/obj.png
+![img](shuttle/obj.png)
 
 ## forestcover Dataset
 ### Output
+```
 Rank = 9, NNZs = 2213138
 Nuclear Norm = 3.797972e+06
 One Norm = 4.119305e+07
@@ -94,9 +93,10 @@ Rank = 8, NNZs = 3332222
 Nuclear Norm = 1.876306e+06
 One Norm = 7.802431e+08
 Objective = 3.335155e+06
+```
 
 ### AUC
-forestcover/auc.png
+![img](forestcover/auc.png)
 
 ### Objective
-forestcover/obj.png
+![img](forestcover/obj.png)
