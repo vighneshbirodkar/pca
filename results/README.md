@@ -43,6 +43,7 @@ Objective = 8.703764e+05
 Rank = 13, NNZs = 1653010
 Nuclear Norm = 1.323947e+05
 One Norm = 1.942560e+08
+Objective = 7.446842e+05
 ```
 ### AUC
 ![img](SA/auc.png)
