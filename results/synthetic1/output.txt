@@ -1,0 +1,20 @@
+Data Rank = 25, Data NNZs = 12521
+vectorizing data
+--------Dan PCA for mu = None--------
+Rank = 8, NNZs = 26287
+Nuclear Norm = 8.118828e-03
+One Norm = 1.252126e+04
+Objective = 5.599759e+02
+Recovery Error = 9.410592e-01
+--------Brian PCA--------
+Rank = 500, NNZs = 250000
+Nuclear Norm = 5.001020e+02
+One Norm = 2.501889e+05
+Objective = 1.168889e+04
+Recovery Error = 5.060646e+04
+--------My PCA--------
+Rank = 25, NNZs = 12521
+Nuclear Norm = 4.877108e-02
+One Norm = 1.252100e+04
+Objective = 5.600049e+02
+Recovery Error = 4.411489e-04

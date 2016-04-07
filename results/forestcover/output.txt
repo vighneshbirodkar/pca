@@ -1,0 +1,15 @@
+--------Dan PCA for mu = None--------
+Rank = 9, NNZs = 2213138
+Nuclear Norm = 3.797972e+06
+One Norm = 4.119305e+07
+Objective = 3.874992e+06
+--------Brian PCA--------
+Rank = 53, NNZs = 15446592
+Nuclear Norm = 3.450006e+06
+One Norm = 2.750681e+09
+Objective = 8.593056e+06
+--------My PCA--------
+Rank = 8, NNZs = 3332222
+Nuclear Norm = 1.876306e+06
+One Norm = 7.802431e+08
+Objective = 3.335155e+06

@@ -106,9 +106,8 @@ class RobustPCA(BaseEstimator):
         # Some magic numbers for dynamic augmenting penalties in ADMM.
         # Changing these shouldn't effect correctness, only convergence rate.
 
-        RHO_START = np.prod(X.shape) / (4*np.abs(X).sum())
-        RHO_MIN = -np.inf
-        RHO_MAX = np.inf
+        RHO_MIN = 1e0
+        RHO_MAX = 1e5
         MAX_RATIO = 2e0
         SCALE_FACTOR = 1.5e0
 
@@ -121,7 +120,7 @@ class RobustPCA(BaseEstimator):
         #  W+ <- W + Y + Z - X
 
         # Initialize
-        rho = RHO_START
+        rho = RHO_MIN
 
         # Scale the data to a workable range
         X = X.astype(np.float)

@@ -3,16 +3,12 @@ import numpy as np
 from numpy.linalg import matrix_rank
 from matplotlib import pyplot as plt
 from pcp import pcp
-from tga import TGA
 from sklearn.utils import shuffle as sh
 from rpca import RobustPCA
 from numpy.linalg import norm
-from numpy.linalg import svd
-from sklearn.preprocessing import LabelBinarizer
+from sklearn import metrics
+from sklearn.preprocessing import LabelBinarizer, LabelEncoder
 from mypca import mypcp
-
-
-TOLERANCE = 1e-4
 
 
 def prettify(ax):
@@ -20,114 +16,125 @@ def prettify(ax):
     ax.grid(True)
 
 
-def do_tga(M, n):
-    tga = TGA(n_components=n, random_state=1, tol=1e-3)
-    tga.fit(M)
-    transformed = tga.transform(M)
-    L = tga.inverse_transform(transformed)
-    S = M - L
-    return L, S, tga.obj, tga.nnzs
-
-
-def do_pcp(M, mu=None, report=False):
-
-    if report:
-        d_ = '-'*8
-        print((d_ + 'Dan PCA for mu = %s' + d_) % mu)
-
-    L, S, obj, nnzs = pcp(M, verbose=True, delta=1e-5, mu=mu,
-                          svd_method='exact', maxiter=20)
-
-    if report:
-        lam = 1.0/np.sqrt(np.max(M.shape))
-        nn = norm(L, 'nuc')
-        on = np.sum(np.abs(S))
-        o = nn + lam*on
-        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
-                                        np.count_nonzero(S)))
-        print('Nuclear Norm = %e' % nn)
-        print('One Norm = %e' % on)
-        print('Objective = %e' % o)
-
-    return L, S, obj, nnzs
-
-
-def do_mypcp(M, mu=None, lam=None, report=False, throttle=True):
-
-    if report:
-        d_ = '-'*8
-        print((d_ + 'My PCA for mu = %s, throttle=%s' + d_) %
-              (mu, str(throttle)))
-
-    L, S, err_list = mypcp(M, mu=mu, lam=lam, max_iter=70, throttle=throttle)
-    err_ax.semilogy(err_list, label='Throttle %s' % str(throttle))
-
-    if report:
-        lam = 1.0/np.sqrt(np.max(M.shape))
-        nn = norm(L, 'nuc')
-        on = np.sum(np.abs(S))
-        o = nn + lam*on
-        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
-                                        np.count_nonzero(S)))
-        print('Nuclear Norm = %e' % nn)
-        print('One Norm = %e' % on)
-        print('Objective = %e' % o)
+def gen_synthetic(n, sparseness, rank):
+    r = rank  # Rank
+    X = np.random.normal(0, 1/float(n), size=(n, r))
+    Y = np.random.normal(0, 1/float(n), size=(n, r))
+    L = np.dot(X, Y.T)
+    p = sparseness/2
+    S = np.random.choice([0, 1, -1], size=(n, n), p=[1 - 2*p, p, p])
 
     return L, S
 
 
-def do_rpca(M, report=False):
+def gen_report(M, name, obj, err, L_test, S_test, L_true, S_true,
+               y_true):
 
+    lam = 1.0/np.sqrt(np.max(M.shape))
+    nn = norm(L_test, 'nuc')
+    on = np.sum(np.abs(S_test))
+    o = nn + lam*on
+    print('Rank = %d, NNZs = %d' % (matrix_rank(L_test),
+                                    np.count_nonzero(S_test)))
+    print('Nuclear Norm = %e' % nn)
+    print('One Norm = %e' % on)
+    print('Objective = %e' % o)
+    if L_true is not None:
+        print('Recovery Error = %e' %
+              (norm(L_test - L_true, 'fro')/norm(L_true, 'fro')))
+
+    y_test = np.linalg.norm(S_test, axis=1)
+    tp, fp, _ = metrics.roc_curve(y_true, y_test)
+    score = metrics.roc_auc_score(y_true, y_test)
+    auc_ax.plot(tp, fp, label=name + ' AUC=' + str(score))
+    obj_ax.plot(obj, label=name + ' Objective')
+
+
+def do_pcp(M=None, y_true=None, L=None, S=None, mu=None,
+           lam=None, report=False):
+
+    if M is None:
+        M = L + S
+
+    L_true, S_true = L, S
+    if report:
+        d_ = '-'*8
+        print((d_ + 'Dan PCA for mu = %s' + d_) % mu)
+
+    L, S, obj, err = pcp(M, verbose=True,
+                         svd_method='exact', maxiter=100)
+
+    if report:
+        gen_report(M, 'Dan PCP', obj, err, L_true=L_true, S_true=S_true,
+                   L_test=L, S_test=S, y_true=y_true)
+    return L, S, obj
+
+
+def do_mypcp(M=None, y_true=None, L=None, S=None, mu=None,
+             lam=None, report=False):
+
+    if M is None:
+        M = L + S
+
+    L_true, S_true = L, S
+    if report:
+        d_ = '-'*8
+        print(d_ + 'My PCA' + d_)
+
+    L, S, obj_list, err_list = mypcp(M, max_iter=100)
+
+    if report:
+        gen_report(M, 'My PCP', obj_list, err_list,
+                   L_true=L_true, S_true=S_true, y_true=y_true,
+                   L_test=L, S_test=S)
+    return L, S
+
+
+def do_rpca(M=None, y_true=None, L=None, S=None, mu=None,
+            lam=None, report=False):
+
+    if L is not None:
+        M = L + S
+
+    L_true, S_true = L, S
     if report:
         d_ = '-'*8
         print(d_ + 'Brian PCA' + d_)
 
-    model = RobustPCA(verbose=False, max_iter=10, abs_tol=1e-10,
-                      rel_tol=1e-7)
+    model = RobustPCA(verbose=False, max_iter=100)
     L = model.fit_transform(M)
     S = M - L
-    lam = 1.0/np.sqrt(np.max(M.shape))
     if report:
-        nn = norm(L, 'nuc')
-        on = np.sum(np.abs(S))
-        o = nn + lam*on
-        print('Rank = %d, NNZs = %d' % (matrix_rank(L),
-                                        np.count_nonzero(S)))
-        print('Nuclear Norm = %e' % nn)
-        print('One Norm = %e' % on)
-        print('Objective = %e' % o)
-
-    fig, error_ax = plt.subplots()
-    error_ax.semilogy(model.diagnostics_['err_primal'], label='Primal Error')
-    error_ax.semilogy(model.diagnostics_['err_dual'], label='Dual Error')
-    prettify(error_ax)
+        gen_report(M, 'Brian PCP', model.diagnostics_['objective_list'],
+                   None, L_true=L_true, S_true=S_true, L_test=L, S_test=S,
+                   y_true=y_true)
     return L, S, model.diagnostics_['objective_list'], None
 
 
 #dataset = fetch_covtype(shuffle=True)
-datasets = ['synthetic']  # , 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
+datasets = ['forestcover']  # , 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
 rank_matrix = {'SF': 3, 'SA': 25, 'shuttle': 5, 'forestcover': 17}
 
 fig, obj_ax = plt.subplots()
-fig, svd_ax = plt.subplots()
-fig, err_ax = plt.subplots()
+fig, auc_ax = plt.subplots()
+#fig, svd_ax = plt.subplots()
+#fig, err_ax = plt.subplots()
 
 for dat in datasets:
     # loading and vectorization
-    print('loading data')
-    if dat == 'synthetic':
-        n = 500
-        r = 25  # Rank
-        X = np.random.normal(0, 1/float(n), size=(n, r))
-        Y = np.random.normal(0, 1/float(n), size=(n, r))
-        L = np.dot(X, Y.T)
-        S = np.random.choice([0, 1, -1], (n, n), p=[0.95, 0.025, 0.025])
+    if dat == 'synthetic1':
+
+        L, S = gen_synthetic(500, 0.05, 25)
         X = L + S
-        L0 = L
-        S0 = S
-        print('Data Rank = %f, Data NNZs = %f' %
-              (matrix_rank(L, TOLERANCE), np.count_nonzero(S)))
-        svd_ax.semilogy(svd(L, False, False), label='SVD Data')
+        print('Data Rank = %d, Data NNZs = %d' %
+              (matrix_rank(L), np.count_nonzero(S)))
+
+    if dat == 'synthetic2':
+
+        L, S = gen_synthetic(1000, 0.05, 25)
+        X = L + S
+        print('Data Rank = %d, Data NNZs = %d' %
+              (matrix_rank(L), np.count_nonzero(S)))
 
     if dat in ['http', 'smtp', 'SA', 'SF']:
         dataset = fetch_kddcup99(subset=dat, shuffle=True, percent10=True)
@@ -157,8 +164,6 @@ for dat in datasets:
         y = y[s]
         y = (y != 2).astype(int)
 
-    print('vectorizing data')
-
     if dat == 'SF':
         lb = LabelBinarizer()
         lb.fit(X[:, 1])
@@ -177,24 +182,18 @@ for dat in datasets:
         X = np.c_[X[:, :1], x1, x2, x3, X[:, 4:]]
         y = (y != 'normal.').astype(int)
 
+#X = (X - X.min())/(X.max() - X.min())
+if (X.dtype == np.dtype('O')):
+    new_X = np.zeros_like(X, dtype=np.int)
+    for c in range(X.shape[1]):
+        new_X[:, c] = LabelEncoder().fit_transform(X[:, c])
+    X = new_X
 
-for mu in []:
-    L, S, pcp_obj, _ = do_pcp(X, mu, report=True)
-    obj_ax.semilogy(pcp_obj, label='Dan Objective mu = %s' % mu)
-    svd_ax.semilogy(svd(L, False, False), label='Dan SVD %s' % mu)
+do_pcp(X, y_true=y, report=True)
+do_rpca(X, y_true=y, report=True)
+do_mypcp(X, y_true=y, report=True)
 
-#L, S, rpca_obj, _ = do_rpca(X, report=True)
-#obj_ax.semilogy(rpca_obj, label='Brian Objective')
-#svd_ax.semilogy(svd(L, False, False), label='Brian SVD %s')
-
-L, S = do_mypcp(X, report=True, throttle=True)
-svd_ax.semilogy(svd(L, False, False), label='MyPCA SVD')
-
-L, S = do_mypcp(X, report=True, throttle=False)
-svd_ax.semilogy(svd(L, False, False), label='MyPCA SVD')
-
-
-prettify(err_ax)
 prettify(obj_ax)
-prettify(svd_ax)
+prettify(auc_ax)
+
 plt.show()

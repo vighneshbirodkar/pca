@@ -23,7 +23,7 @@ from numpy.linalg import norm as norm_
 from scipy.sparse.linalg import svds
 
 
-def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
+def pcp(M, delta=1e-7, mu=None, maxiter=500, verbose=False, missing_data=True,
         svd_method="approximate", **svd_args):
     # Check the SVD method.
     allowed_methods = ["approximate", "exact", "sparse"]
@@ -49,7 +49,7 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
     if mu is None:
         mu = 0.25 * np.prod(shape) / np.sum(np.abs(M))
         if verbose:
-            pass #print("mu = {0}".format(mu))
+            pass
 
     # Convergence criterion.
     norm = np.sum(M ** 2)
@@ -59,9 +59,9 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
     rank = np.min(shape)
     S = np.zeros(shape)
     Y = np.zeros(shape)
-    
+
     obj = []
-    nnzs = []
+    errs = []
     while i < max(maxiter, 1):
         # SVD step.
         strt = time.time()
@@ -83,23 +83,19 @@ def pcp(M, delta=1e-6, mu=None, maxiter=500, verbose=False, missing_data=True,
 
         # Check for convergence.
         err = np.sqrt(np.sum(step ** 2) / norm)
-        print(err)
+        errs.append(err)
         if verbose:
             S_ = M - L
             o = norm_(L, 'nuc') + lam*np.sum(np.abs(S_))
-            #print('PCP Objective = ', o)
             obj.append(o)
-            #print(("Iteration {0}: error={1:.3e}, rank={2:d}, nnz={3:d}, "
-            #       "time={4:.3e}")
-            #      .format(i, err, np.sum(s > 0), np.sum(S > 0), svd_time))
-            nnzs.append(np.sum(S > 0))
+
         if err < delta:
             break
         i += 1
 
     #if i >= maxiter:
     #    logging.warn("convergence not reached in pcp")
-    return L, S, obj, nnzs
+    return L, S, obj, errs
 
 
 def shrink(M, tau):
