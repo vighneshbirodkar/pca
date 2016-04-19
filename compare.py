@@ -43,10 +43,11 @@ def gen_report(M, name, obj, err, L_test, S_test, L_true, S_true,
         print('Recovery Error = %e' %
               (norm(L_test - L_true, 'fro')/norm(L_true, 'fro')))
 
-    y_test = np.linalg.norm(S_test, axis=1)
-    tp, fp, _ = metrics.roc_curve(y_true, y_test)
-    score = metrics.roc_auc_score(y_true, y_test)
-    auc_ax.plot(tp, fp, label=name + ' AUC=' + str(score))
+    if y_true is not None:
+        y_test = np.linalg.norm(S_test, axis=1)
+        tp, fp, _ = metrics.roc_curve(y_true, y_test)
+        score = metrics.roc_auc_score(y_true, y_test)
+        auc_ax.plot(tp, fp, label=name + ' AUC=' + str(score))
     obj_ax.plot(obj, label=name + ' Objective')
 
 
@@ -112,7 +113,7 @@ def do_rpca(M=None, y_true=None, L=None, S=None, mu=None,
 
 
 #dataset = fetch_covtype(shuffle=True)
-datasets = ['forestcover']  # , 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
+datasets = ['synthetic1']  # , 'smtp', 'SA', 'SF', 'shuttle', 'forestcover']
 rank_matrix = {'SF': 3, 'SA': 25, 'shuttle': 5, 'forestcover': 17}
 
 fig, obj_ax = plt.subplots()
@@ -189,9 +190,9 @@ if (X.dtype == np.dtype('O')):
         new_X[:, c] = LabelEncoder().fit_transform(X[:, c])
     X = new_X
 
-do_pcp(X, y_true=y, report=True)
-do_rpca(X, y_true=y, report=True)
-do_mypcp(X, y_true=y, report=True)
+do_pcp(M=X, L=L, S=S, report=True)
+do_rpca(M=X, L=L, S=S, report=True)
+do_mypcp(M=X, L=L, S=S, report=True)
 
 prettify(obj_ax)
 prettify(auc_ax)

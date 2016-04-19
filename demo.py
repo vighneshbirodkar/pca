@@ -5,7 +5,7 @@ from __future__ import division, print_function
 import numpy as np
 from PIL import Image
 
-from pcp import pcp
+from mypca import mypcp
 
 
 def bitmap_to_mat(bitmap_seq):
@@ -24,7 +24,8 @@ def bitmap_to_mat(bitmap_seq):
 
 def do_plot(ax, img, shape):
     ax.cla()
-    ax.imshow(img.reshape(shape), cmap="gray", interpolation="nearest")
+    ax.imshow(img.reshape(shape), cmap="gray", interpolation="nearest",
+              vmin=0, vmax=255)
     ax.set_xticklabels([])
     ax.set_yticklabels([])
 
@@ -36,26 +37,25 @@ if __name__ == "__main__":
 
     if "--test" in sys.argv:
         M = (10*np.ones((10, 10))) + (-5 * np.eye(10))
-        L, S, svd = pcp(M, verbose=True, svd_method="exact")
+        L, S, svd = mypcp(M, verbose=True, svd_method="exact")
         assert np.allclose(M, L + S), "Failed"
         print("passed")
         sys.exit(0)
 
-    gl = glob.glob("/home/vighnesh/images/Escalator/*.bmp")[:2000:2]
+    gl = glob.glob("/home/vighnesh/images/Escalator/*.bmp")[:500:2]
     M, shape = bitmap_to_mat(gl)
     print(M.shape)
-    L, S, (u, s, v) = pcp(M, delta=1e-3, maxiter=50, verbose=True, 
-    svd_method="approximate")
+    L, S, _, _ = mypcp(M)
 
     fig, axes = pl.subplots(1, 3, figsize=(10, 4))
     fig.subplots_adjust(left=0, right=1, hspace=0, wspace=0.01)
 
     i = 0
-    do_plot(axes[0], M[i], shape)
-    axes[0].set_title("raw")
-    do_plot(axes[1], L[i], shape)
-    axes[1].set_title("low rank")
-    do_plot(axes[2], S[i], shape)
-    axes[2].set_title("sparse")
+    for i in range(10):
+        do_plot(axes[0], M[i], shape)
+        axes[0].set_title("raw")
+        do_plot(axes[1], L[i], shape)
+        axes[1].set_title("low rank")
+        do_plot(axes[2], S[i], shape)
+        axes[2].set_title("sparse")
     pl.show()
-
